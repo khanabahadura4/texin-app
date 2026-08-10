@@ -81,15 +81,53 @@ export const INITIAL_FACTORIES: FactoryInfo[] = [
   }
 ];
 
-export const UNIVERSITIES_LIST = [
-  { id: 'BUTEX', name: 'BUTEX', fullName: 'Bangladesh University of Textiles', location: 'Tejgaon, Dhaka' },
-  { id: 'DUET', name: 'DUET', fullName: 'Dhaka University of Engineering & Technology', location: 'Gazipur' },
-  { id: 'NITER', name: 'NITER', fullName: 'National Institute of Textile Engineering & Research', location: 'Savar, Dhaka' },
-  { id: 'MBSTU', name: 'MBSTU', fullName: 'Mawlana Bhashani Science & Technology University', location: 'Tangail' },
-  { id: 'AUST', name: 'AUST', fullName: 'Ahsanullah University of Science and Technology', location: 'Dhaka' },
-  { id: 'BUBT', name: 'BUBT', fullName: 'Bangladesh University of Business and Technology', location: 'Mirpur, Dhaka' },
-  { id: 'SEU', name: 'SEU', fullName: 'Southeast University', location: 'Tejgaon, Dhaka' },
-  { id: 'CTEC', name: 'CTEC', fullName: 'Chittagong Textile Engineering College', location: 'Chattogram' }
+export type UniversityType = 'GOVT' | 'PRIVATE';
+
+export interface UniversityListItem {
+  id: string;
+  name: string;
+  fullName: string;
+  location: string;
+  type: UniversityType;
+}
+
+// Comprehensive list of Bangladesh's Govt (public) & Private Textile Universities / Colleges.
+export const UNIVERSITIES_LIST: UniversityListItem[] = [
+  // ================= GOVERNMENT (PUBLIC) =================
+  { id: 'BUTEX', name: 'BUTEX', fullName: 'Bangladesh University of Textiles', location: 'Tejgaon, Dhaka', type: 'GOVT' },
+  { id: 'DUET', name: 'DUET', fullName: 'Dhaka University of Engineering & Technology', location: 'Gazipur', type: 'GOVT' },
+  { id: 'KUET', name: 'KUET', fullName: 'Khulna University of Engineering & Technology', location: 'Khulna', type: 'GOVT' },
+  { id: 'MBSTU', name: 'MBSTU', fullName: 'Mawlana Bhashani Science & Technology University', location: 'Santosh, Tangail', type: 'GOVT' },
+  { id: 'JUST', name: 'JUST', fullName: 'Jashore University of Science & Technology', location: 'Jashore', type: 'GOVT' },
+  { id: 'CTEC', name: 'CTEC', fullName: 'Textile Engineering College, Chattogram', location: 'Chattogram', type: 'GOVT' },
+  { id: 'NOAKHALI_TEC', name: 'Noakhali TEC', fullName: 'Textile Engineering College, Noakhali (Begumganj)', location: 'Begumganj, Noakhali', type: 'GOVT' },
+  { id: 'PABNA_TEC', name: 'Pabna TEC', fullName: 'Pabna Textile Engineering College', location: 'Pabna', type: 'GOVT' },
+  { id: 'BARISHAL_TEC', name: 'Barishal TEC', fullName: 'Shaheed Abdur Rab Serniabat Textile Engineering College', location: 'Barishal', type: 'GOVT' },
+  { id: 'RANGPUR_TEC', name: 'Rangpur TEC', fullName: 'Dr. M.A. Wazed Mia Textile Engineering College', location: 'Pirganj, Rangpur', type: 'GOVT' },
+  { id: 'GOPALGANJ_TEC', name: 'Gopalganj TEC', fullName: 'Sheikh Rehana Textile Engineering College', location: 'Gopalganj', type: 'GOVT' },
+  { id: 'JAMALPUR_TEC', name: 'Jamalpur TEC', fullName: 'Sheikh Hasina Textile Engineering College', location: 'Jamalpur', type: 'GOVT' },
+  { id: 'JHENAIDAH_TEC', name: 'Jhenaidah TEC', fullName: 'Jhenaidah Textile Engineering College', location: 'Jhenaidah', type: 'GOVT' },
+  { id: 'MADARIPUR_TEC', name: 'Madaripur TEC', fullName: 'Madaripur Textile Engineering College', location: 'Madaripur', type: 'GOVT' },
+  { id: 'SYLHET_TEC', name: 'Sylhet TEC', fullName: 'Sheikh Rasel Textile Engineering College', location: 'Sylhet', type: 'GOVT' },
+  { id: 'TANGAIL_TEC', name: 'Tangail TEC', fullName: 'Tangail Textile Engineering College', location: 'Tangail', type: 'GOVT' },
+  { id: 'BHETI_NARSINGDI', name: 'BHETI, Narsingdi', fullName: 'Bangladesh Handloom Education & Training Institute', location: 'Narsingdi', type: 'GOVT' },
+
+  // ================= PRIVATE =================
+  { id: 'NITER', name: 'NITER', fullName: 'National Institute of Textile Engineering & Research', location: 'Savar, Dhaka', type: 'PRIVATE' },
+  { id: 'AUST', name: 'AUST', fullName: 'Ahsanullah University of Science and Technology', location: 'Tejgaon, Dhaka', type: 'PRIVATE' },
+  { id: 'BUBT', name: 'BUBT', fullName: 'Bangladesh University of Business and Technology', location: 'Mirpur, Dhaka', type: 'PRIVATE' },
+  { id: 'SEU', name: 'SEU', fullName: 'Southeast University', location: 'Tejgaon, Dhaka', type: 'PRIVATE' },
+  { id: 'CITY_UNIV', name: 'City University', fullName: 'City University', location: 'Birulia, Savar, Dhaka', type: 'PRIVATE' },
+  { id: 'GREEN_UNIV', name: 'GUB', fullName: 'Green University of Bangladesh', location: 'Purbachal, Dhaka', type: 'PRIVATE' },
+  { id: 'WORLD_UNIV', name: 'WUB', fullName: 'World University of Bangladesh', location: 'Dhaka', type: 'PRIVATE' },
+  { id: 'UTTARA_UNIV', name: 'Uttara University', fullName: 'Uttara University', location: 'Uttara, Dhaka', type: 'PRIVATE' },
+  { id: 'NORTHERN_UNIV', name: 'Northern University', fullName: 'Northern University Bangladesh', location: 'Dhaka', type: 'PRIVATE' },
+  { id: 'SONARGAON_UNIV', name: 'Sonargaon Univ.', fullName: 'Sonargaon University (SU)', location: 'Dhaka', type: 'PRIVATE' },
+  { id: 'PRIME_UNIV', name: 'Prime University', fullName: 'Prime University', location: 'Mirpur, Dhaka', type: 'PRIVATE' },
+  { id: 'ATISH_DIPANKAR', name: 'ADUST', fullName: 'Atish Dipankar University of Science & Technology', location: 'Uttara, Dhaka', type: 'PRIVATE' },
+  { id: 'PRIMEASIA_UNIV', name: 'Primeasia University', fullName: 'Primeasia University', location: 'Banani, Dhaka', type: 'PRIVATE' },
+  { id: 'EUB', name: 'EUB', fullName: 'European University of Bangladesh', location: 'Dhaka', type: 'PRIVATE' },
+  { id: 'KHWAJA_YUNUS_ALI', name: 'KYAU', fullName: 'Khwaja Yunus Ali University', location: 'Sirajganj', type: 'PRIVATE' }
 ];
 
 export const INITIAL_USERS: UserProfile[] = [
