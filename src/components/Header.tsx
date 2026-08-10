@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Search, Home, Building2, GraduationCap, Briefcase, User, Users, Globe, UserPlus, Sparkles, ChevronDown, Check, Sun, Moon } from 'lucide-react';
+import { Search, Home, Building2, GraduationCap, Briefcase, User, Users, Globe, UserPlus, Sparkles, ChevronDown, Check, Sun, Moon, Settings, LogOut } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'feed' | 'factories' | 'alumni' | 'jobs' | 'profile';
-  setActiveTab: (tab: 'feed' | 'factories' | 'alumni' | 'jobs' | 'profile') => void;
+  activeTab: 'feed' | 'factories' | 'alumni' | 'jobs' | 'profile' | 'settings';
+  setActiveTab: (tab: 'feed' | 'factories' | 'alumni' | 'jobs' | 'profile' | 'settings') => void;
   onOpenSignUp: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -138,6 +138,28 @@ export const Header: React.FC<HeaderProps> = ({
               {darkMode ? <Sun className="w-3.5 h-3.5 text-brand-300" /> : <Moon className="w-3.5 h-3.5 text-brand-300" />}
             </button>
 
+            {/* Settings Shortcut */}
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`p-1.5 rounded-lg transition border ${
+                activeTab === 'settings'
+                  ? 'bg-white text-[#005244] border-white'
+                  : 'bg-brand-950/40 hover:bg-brand-900/60 text-white border-brand-700/60'
+              }`}
+              title={language === 'BN' ? 'সেটিংস' : 'Settings'}
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Quick Logout */}
+            <button
+              onClick={() => logout()}
+              className="hidden sm:flex p-1.5 rounded-lg bg-brand-950/40 hover:bg-red-600 text-white transition border border-brand-700/60"
+              title={language === 'BN' ? 'লগ আউট' : 'Log out'}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+
             {/* Sign Up Button */}
             <button
               onClick={onOpenSignUp}
@@ -179,16 +201,29 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   </div>
 
-                  {/* Log out */}
+                  {/* Settings */}
                   <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                    <button
+                      onClick={() => {
+                        setActiveTab('settings');
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 text-left p-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    >
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      <span>{language === 'BN' ? 'সেটিংস' : 'Settings'}</span>
+                    </button>
+
+                    {/* Log out */}
                     <button
                       onClick={() => {
                         logout();
                         setShowProfileMenu(false);
                       }}
-                      className="w-full text-left p-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 transition"
+                      className="w-full flex items-center gap-2 text-left p-2 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 transition"
                     >
-                      {language === 'BN' ? 'লগ আউট' : 'Log out'}
+                      <LogOut className="w-4 h-4" />
+                      <span>{language === 'BN' ? 'লগ আউট' : 'Log out'}</span>
                     </button>
                   </div>
                 </div>
