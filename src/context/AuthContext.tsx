@@ -4,6 +4,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider,
   User as FirebaseUser
 } from 'firebase/auth';
 import {
@@ -18,7 +22,8 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, db, storage } from '../firebase';
 import { UserProfile, Post, Comment, FactoryInfo, JobPosting, AudienceVisibility } from '../types';
 import { INITIAL_FACTORIES, INITIAL_JOBS } from '../data/mockData';
 
@@ -35,11 +40,17 @@ interface AuthContextType {
   toggleDarkMode: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   signUpUser: (
     newProfileData: Omit<UserProfile, 'id' | 'connectionsCount'>,
-    password: string
+    password: string,
+    avatarFile?: File | null
   ) => Promise<void>;
   updateProfile: (updated: UserProfile) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<string>;
+  uploadCoverImage: (file: File) => Promise<string>;
+  uploadPostImage: (file: File) => Promise<string>;
   createPost: (postData: {
     content: string;
     imageUrl?: string;
@@ -160,13 +171,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
   };
 
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) {
+      throw new Error('You must be logged in to change your password.');
+    }
+    // Firebase requires a fresh login before allowing a sensitive op like updatePassword.
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPassword);
+  };
+
+  // Generic helper: upload a File to Firebase Storage at `path` and return its public URL.
+  const uploadFileToStorage = async (file: File, path: string): Promise<string> => {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+  };
+
+  const uploadAvatar = async (file: File): Promise<string> => {
+    if (!firebaseUser) throw new Error('Not logged in');
+    return uploadFileToStorage(file, `avatars/${firebaseUser.uid}/${Date.now()}-${file.name}`);
+  };
+
+  const uploadCoverImage = async (file: File): Promise<string> => {
+    if (!firebaseUser) throw new Error('Not logged in');
+    return uploadFileToStorage(file, `covers/${firebaseUser.uid}/${Date.now()}-${file.name}`);
+  };
+
+  const uploadPostImage = async (file: File): Promise<string> => {
+    if (!firebaseUser) throw new Error('Not logged in');
+    return uploadFileToStorage(file, `posts/${firebaseUser.uid}/${Date.now()}-${file.name}`);
+  };
+
   const signUpUser = async (
     newProfileData: Omit<UserProfile, 'id' | 'connectionsCount'>,
-    password: string
+    password: string,
+    avatarFile?: File | null
   ) => {
     const cred = await createUserWithEmailAndPassword(auth, newProfileData.email, password);
+
+    let avatarUrl = newProfileData.avatarUrl;
+    if (avatarFile) {
+      try {
+        avatarUrl = await uploadFileToStorage(avatarFile, `avatars/${cred.user.uid}/${Date.now()}-${avatarFile.name}`);
+      } catch (err) {
+        // Non-fatal: keep the fallback avatar URL if the photo upload fails.
+        console.error('Avatar upload failed during sign up:', err);
+      }
+    }
+
     const newUser: Omit<UserProfile, 'id'> = {
       ...newProfileData,
+      avatarUrl,
       connectionsCount: 1
     };
     await setDoc(doc(db, 'users', cred.user.uid), newUser);
@@ -185,8 +245,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     targetUniversity?: string;
     targetFactory?: string;
   }) => {
-    if (!currentUser) return;
-    const newPost: Omit<Post, 'id'> & { createdAtISO: string } = {
+    if (!currentUser) throw new Error('You must be logged in to post.');
+
+    const newPost: Record<string, unknown> = {
       authorId: currentUser.id,
       authorName: `${currentUser.firstName} ${currentUser.lastName}`,
       authorAvatar:
@@ -196,17 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authorUniversity: currentUser.education.university,
       authorCompany: currentUser.currentCompany,
       content: postData.content,
-      imageUrl: postData.imageUrl,
-      videoUrl: postData.videoUrl,
       visibility: postData.visibility,
-      targetUniversity:
-        postData.visibility === 'UNIVERSITY_ONLY'
-          ? postData.targetUniversity || currentUser.education.university
-          : undefined,
-      targetFactory:
-        postData.visibility === 'FACTORY_ONLY'
-          ? postData.targetFactory || currentUser.currentCompany
-          : undefined,
       createdAt: 'Just now',
       createdAtISO: new Date().toISOString(),
       likes: 0,
@@ -214,6 +265,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reposts: 0,
       comments: []
     };
+
+    // IMPORTANT: Firestore rejects `undefined` field values with a thrown error.
+    // Only attach optional fields when they actually have a value.
+    if (postData.imageUrl) newPost.imageUrl = postData.imageUrl;
+    if (postData.videoUrl) newPost.videoUrl = postData.videoUrl;
+    if (postData.visibility === 'UNIVERSITY_ONLY') {
+      newPost.targetUniversity = postData.targetUniversity || currentUser.education.university;
+    }
+    if (postData.visibility === 'FACTORY_ONLY') {
+      newPost.targetFactory = postData.targetFactory || currentUser.currentCompany;
+    }
+
     await addDoc(collection(db, 'posts'), newPost);
   };
 
@@ -268,8 +331,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleDarkMode,
         login,
         logout,
+        resetPassword,
+        changePassword,
         signUpUser,
         updateProfile,
+        uploadAvatar,
+        uploadCoverImage,
+        uploadPostImage,
         createPost,
         likePost,
         addComment,
