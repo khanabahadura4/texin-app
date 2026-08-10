@@ -8,14 +8,15 @@ import { FactoryDirectory } from './components/FactoryDirectory';
 import { AlumniDirectory } from './components/AlumniDirectory';
 import { ProfileView } from './components/ProfileView';
 import { JobBoard } from './components/JobBoard';
+import { SettingsView } from './components/SettingsView';
 import { UNIVERSITIES_LIST } from './data/mockData';
-import { Building2, GraduationCap, Plus, Users, Globe, Lock, ShieldCheck, Sparkles, Filter, Briefcase, Award, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Building2, GraduationCap, Plus, Users, Globe, Lock, ShieldCheck, Sparkles, Filter, Briefcase, Award, ArrowRight, Sun, Moon, Mail, X, CheckCircle2, AlertCircle } from 'lucide-react';
 
 function MainApp() {
   const { currentUser, posts, factories, language } = useAuth();
   if (!currentUser) return null;
 
-  const [activeTab, setActiveTab] = useState<'feed' | 'factories' | 'alumni' | 'jobs' | 'profile'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'factories' | 'alumni' | 'jobs' | 'profile' | 'settings'>('feed');
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
 
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
@@ -330,6 +331,9 @@ function MainApp() {
             onBack={selectedProfileUserId ? () => setSelectedProfileUserId(null) : undefined}
           />
         )}
+
+        {/* TAB 6: SETTINGS */}
+        {activeTab === 'settings' && <SettingsView />}
       </main>
 
       {/* CREATE POST MODAL */}
@@ -371,12 +375,112 @@ function AuthGate() {
   return <MainApp />;
 }
 
+function ForgotPasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { resetPassword, language } = useAuth();
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('sending');
+    setErrorMsg('');
+    try {
+      await resetPassword(email.trim());
+      setStatus('sent');
+    } catch (err: any) {
+      setStatus('error');
+      setErrorMsg(
+        err?.message ||
+          (language === 'BN' ? 'রিসেট লিংক পাঠানো যায়নি। ইমেইল ঠিক আছে কিনা দেখুন।' : 'Could not send reset link. Check the email address.')
+      );
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
+        <button
+          onClick={() => {
+            onClose();
+            setStatus('idle');
+            setEmail('');
+          }}
+          className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="text-center mb-5">
+          <div className="inline-flex p-2.5 bg-[#005244] rounded-xl mb-2">
+            <Mail className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            {language === 'BN' ? 'পাসওয়ার্ড ভুলে গেছেন?' : 'Forgot your password?'}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            {language === 'BN'
+              ? 'আপনার ইমেইল দিন, আমরা রিসেট লিংক পাঠাবো'
+              : "Enter your email and we'll send you a reset link"}
+          </p>
+        </div>
+
+        {status === 'sent' ? (
+          <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 dark:bg-green-950/40 dark:text-green-400 border border-green-200 dark:border-green-900 rounded-lg px-3 py-3">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              {language === 'BN'
+                ? `${email} ঠিকানায় একটি পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে। আপনার ইনবক্স দেখুন।`
+                : `A password reset link has been sent to ${email}. Please check your inbox.`}
+            </span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                {language === 'BN' ? 'ইমেইল' : 'Email'}
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+              />
+            </div>
+
+            {status === 'error' && (
+              <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === 'sending'}
+              className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-sm rounded-lg shadow-lg transition disabled:opacity-60"
+            >
+              {status === 'sending'
+                ? (language === 'BN' ? 'পাঠানো হচ্ছে...' : 'Sending...')
+                : (language === 'BN' ? 'রিসেট লিংক পাঠান' : 'Send Reset Link')}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({ onOpenSignUp }: { onOpenSignUp: () => void }) {
   const { login, language, darkMode, toggleDarkMode } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,9 +529,18 @@ function LoginScreen({ onOpenSignUp }: { onOpenSignUp: () => void }) {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-              {language === 'BN' ? 'পাসওয়ার্ড' : 'Password'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {language === 'BN' ? 'পাসওয়ার্ড' : 'Password'}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400"
+              >
+                {language === 'BN' ? 'পাসওয়ার্ড ভুলে গেছেন?' : 'Forgot password?'}
+              </button>
+            </div>
             <input
               type="password"
               required
@@ -459,6 +572,8 @@ function LoginScreen({ onOpenSignUp }: { onOpenSignUp: () => void }) {
           {language === 'BN' ? 'নতুন অ্যাকাউন্ট তৈরি করুন' : 'Create New Account'}
         </button>
       </div>
+
+      <ForgotPasswordModal isOpen={showForgotPassword} onClose={() => setShowForgotPassword(false)} />
     </div>
   );
 }
