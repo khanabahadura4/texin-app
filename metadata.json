@@ -1,0 +1,6 @@
+{
+  "name": "TexIn - Textile Network",
+  "description": "LinkedIn-style professional platform for the textile sector to connect factory employees, university alumni, and share target-audience posts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
