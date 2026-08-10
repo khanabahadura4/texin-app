@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AudienceVisibility } from '../types';
-import { X, Image, Video, Globe, GraduationCap, Building2, Lock, Send, Layers } from 'lucide-react';
+import { X, Image, Video, Globe, GraduationCap, Building2, Lock, Send, Layers, Upload, Loader2, AlertCircle } from 'lucide-react';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -9,36 +9,81 @@ interface CreatePostModalProps {
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose }) => {
-  const { currentUser, createPost, language } = useAuth();
+  const { currentUser, createPost, uploadPostImage, language } = useAuth();
 
   const [content, setContent] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [showMediaInput, setShowMediaInput] = useState<'image' | 'video' | null>(null);
 
   const [visibility, setVisibility] = useState<AudienceVisibility>('ANYONE');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen || !currentUser) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim()) return;
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg(language === 'BN' ? 'শুধুমাত্র ছবি ফাইল আপলোড করা যাবে।' : 'Only image files can be uploaded.');
+      return;
+    }
+    setErrorMsg('');
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
-    createPost({
-      content: content.trim(),
-      imageUrl: imageUrl.trim() || undefined,
-      videoUrl: videoUrl.trim() || undefined,
-      visibility,
-      targetUniversity: currentUser.education.university,
-      targetFactory: currentUser.currentCompany
-    });
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
+  const resetForm = () => {
     setContent('');
-    setImageUrl('');
+    handleRemoveImage();
     setVideoUrl('');
     setShowMediaInput(null);
     setVisibility('ANYONE');
-    onClose();
+    setErrorMsg('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    try {
+      let uploadedImageUrl: string | undefined;
+      if (imageFile) {
+        uploadedImageUrl = await uploadPostImage(imageFile);
+      }
+
+      await createPost({
+        content: content.trim(),
+        imageUrl: uploadedImageUrl,
+        videoUrl: videoUrl.trim() || undefined,
+        visibility,
+        targetUniversity: currentUser.education.university,
+        targetFactory: currentUser.currentCompany
+      });
+
+      resetForm();
+      onClose();
+    } catch (err: any) {
+      console.error('Post creation failed:', err);
+      setErrorMsg(
+        err?.message ||
+          (language === 'BN' ? 'পোস্ট করা যায়নি। আবার চেষ্টা করুন।' : 'Could not create the post. Please try again.')
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -62,7 +107,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
             className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
             <X className="w-5 h-5" />
@@ -148,47 +196,51 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {language === 'BN' ? 'ছবির ইউআরএল / ইমেজ লিংক' : 'Image URL'}
+                  {language === 'BN' ? 'ডিভাইস থেকে ছবি আপলোড করুন' : 'Upload a photo from your device'}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setShowMediaInput(null)}
+                  onClick={() => {
+                    setShowMediaInput(null);
+                    handleRemoveImage();
+                  }}
                   className="text-xs text-slate-400 hover:text-slate-600"
                 >
                   Cancel
                 </button>
               </div>
+
               <input
-                type="url"
-                value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3 py-1.5 text-xs border rounded-lg dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="hidden"
+                id="post-image-upload"
               />
-              <div className="flex gap-2 pt-1 overflow-x-auto">
-                <span className="text-[10px] text-slate-400 self-center">Sample images:</span>
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&auto=format&fit=crop&q=80')}
-                  className="text-[10px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded hover:bg-brand-100"
+
+              {!imagePreview ? (
+                <label
+                  htmlFor="post-image-upload"
+                  className="flex flex-col items-center justify-center gap-1.5 py-6 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-brand-50/40 dark:hover:bg-brand-950/20 transition"
                 >
-                  Spinning Machine
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=800&auto=format&fit=crop&q=80')}
-                  className="text-[10px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded hover:bg-brand-100"
-                >
-                  Dyehouse
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('https://images.unsplash.com/photo-1516257984-b1b4d707412e?w=800&auto=format&fit=crop&q=80')}
-                  className="text-[10px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded hover:bg-brand-100"
-                >
-                  Denim Fabric
-                </button>
-              </div>
+                  <Upload className="w-5 h-5 text-slate-400" />
+                  <span className="text-xs font-medium text-slate-500">
+                    {language === 'BN' ? 'ছবি বেছে নিতে ক্লিক করুন' : 'Click to choose a photo'}
+                  </span>
+                </label>
+              ) : (
+                <div className="relative">
+                  <img src={imagePreview} alt="Preview" className="w-full max-h-56 object-cover rounded-lg" />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 p-1.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -216,14 +268,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             </div>
           )}
 
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           {/* Footer controls & Submit */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center space-x-2">
               <button
                 type="button"
-                onClick={() => setShowMediaInput('image')}
+                onClick={() => setShowMediaInput(prev => (prev === 'image' ? null : 'image'))}
                 className={`p-2 rounded-lg text-xs font-medium flex items-center space-x-1 transition ${
-                  showMediaInput === 'image'
+                  showMediaInput === 'image' || imagePreview
                     ? 'bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
                     : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                 }`}
@@ -234,7 +294,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
               <button
                 type="button"
-                onClick={() => setShowMediaInput('video')}
+                onClick={() => setShowMediaInput(prev => (prev === 'video' ? null : 'video'))}
                 className={`p-2 rounded-lg text-xs font-medium flex items-center space-x-1 transition ${
                   showMediaInput === 'video'
                     ? 'bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
@@ -248,11 +308,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
             <button
               type="submit"
-              disabled={!content.trim()}
+              disabled={!content.trim() || isSubmitting}
               className="px-5 py-2 bg-[#005244] hover:bg-[#002e26] disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow transition flex items-center space-x-1.5"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>{language === 'BN' ? 'পোস্ট করুন' : 'Post Update'}</span>
+              {isSubmitting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {isSubmitting
+                  ? (language === 'BN' ? 'পোস্ট হচ্ছে...' : 'Posting...')
+                  : (language === 'BN' ? 'পোস্ট করুন' : 'Post Update')}
+              </span>
             </button>
           </div>
         </form>
