@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UNIVERSITIES_LIST, INITIAL_FACTORIES } from '../data/mockData';
 import { JobHistoryItem, UserProfile } from '../types';
-import { X, Plus, Trash2, Building2, GraduationCap, Briefcase, User, Mail, Phone, Calendar, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Building2, GraduationCap, Briefcase, User, Mail, Phone, Calendar, Sparkles, Camera, Upload, Loader2 } from 'lucide-react';
 
 interface SignUpModalProps {
   isOpen: boolean;
@@ -11,6 +11,13 @@ interface SignUpModalProps {
 
 export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => {
   const { signUpUser, language } = useAuth();
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const [step, setStep] = useState<number>(1); // 1: Personal Info, 2: Education, 3: Present & Previous Work History
 
@@ -23,7 +30,9 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => 
   const [submitting, setSubmitting] = useState(false);
   const [mobileNumber, setMobileNumber] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Education state
   const [university, setUniversity] = useState('BUTEX');
@@ -106,7 +115,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => 
       email,
       mobileNumber,
       birthDate,
-      avatarUrl: avatarUrl.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
       headline,
       bio: `Textile Engineering professional graduated from ${finalUniversityName} (${batchNumber}). Currently working as ${currentPosition} at ${finalCompany}.`,
       location,
@@ -133,7 +142,7 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => 
     setSubmitting(true);
     setAuthError('');
     try {
-      await signUpUser(newUserProfile, password);
+      await signUpUser(newUserProfile, password, avatarFile);
       onClose();
     } catch (err: any) {
       setAuthError(err?.message || 'Sign up failed');
@@ -284,15 +293,34 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => 
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    {language === 'BN' ? 'প্রোফাইল ছবি লিংক (Profile Photo URL)' : 'Profile Photo URL'}
+                    {language === 'BN' ? 'প্রোফাইল ছবি (ঐচ্ছিক)' : 'Profile Photo (optional)'}
                   </label>
                   <input
-                    type="url"
-                    value={avatarUrl}
-                    onChange={e => setAvatarUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                    id="signup-avatar-upload"
                   />
+                  <label
+                    htmlFor="signup-avatar-upload"
+                    className="w-full flex items-center gap-3 px-3 py-2 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-brand-50/40 dark:hover:bg-brand-950/20 transition"
+                  >
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Preview" className="w-9 h-9 rounded-full object-cover border border-brand-300" />
+                    ) : (
+                      <span className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <Camera className="w-4 h-4 text-slate-400" />
+                      </span>
+                    )}
+                    <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      {avatarFile
+                        ? avatarFile.name
+                        : (language === 'BN' ? 'ছবি বেছে নিতে ক্লিক করুন' : 'Click to choose a photo')}
+                    </span>
+                  </label>
                 </div>
               </div>
 
@@ -332,11 +360,20 @@ export const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose }) => 
                     onChange={e => setUniversity(e.target.value)}
                     className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                   >
-                    {UNIVERSITIES_LIST.map(u => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} - {u.fullName}
-                      </option>
-                    ))}
+                    <optgroup label={language === 'BN' ? '🏛️ সরকারি (Government)' : '🏛️ Government'}>
+                      {UNIVERSITIES_LIST.filter(u => u.type === 'GOVT').map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} - {u.fullName}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={language === 'BN' ? '🏢 বেসরকারি (Private)' : '🏢 Private'}>
+                      {UNIVERSITIES_LIST.filter(u => u.type === 'PRIVATE').map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} - {u.fullName}
+                        </option>
+                      ))}
+                    </optgroup>
                     <option value="OTHER">Other Institution / College</option>
                   </select>
                 </div>
