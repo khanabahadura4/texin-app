@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile, JobHistoryItem } from '../types';
 import { UNIVERSITIES_LIST, INITIAL_FACTORIES } from '../data/mockData';
-import { Building2, GraduationCap, MapPin, Phone, Mail, Calendar, Briefcase, Award, Edit3, Plus, Trash2, X, Check, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Building2, GraduationCap, MapPin, Phone, Mail, Calendar, Briefcase, Award, Edit3, Plus, Trash2, X, Check, ArrowLeft, ShieldCheck, Camera, Loader2 } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
@@ -10,7 +10,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ userId, onBack }) => {
-  const { currentUser, users, updateProfile, language } = useAuth();
+  const { currentUser, users, updateProfile, uploadAvatar, uploadCoverImage, language } = useAuth();
 
   if (!currentUser) return null;
 
@@ -18,6 +18,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, onBack }) => {
   const isOwnProfile = user.id === currentUser.id;
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !isOwnProfile) return;
+    setPhotoError('');
+    setIsUploadingAvatar(true);
+    try {
+      const url = await uploadAvatar(file);
+      await updateProfile({ ...user, avatarUrl: url });
+    } catch (err: any) {
+      setPhotoError(err?.message || (language === 'BN' ? 'ছবি আপলোড করা যায়নি।' : 'Photo upload failed.'));
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !isOwnProfile) return;
+    setPhotoError('');
+    setIsUploadingCover(true);
+    try {
+      const url = await uploadCoverImage(file);
+      await updateProfile({ ...user, coverImageUrl: url });
+    } catch (err: any) {
+      setPhotoError(err?.message || (language === 'BN' ? 'কভার ছবি আপলোড করা যায়নি।' : 'Cover photo upload failed.'));
+    } finally {
+      setIsUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
 
   // Edit form states
   const [firstName, setFirstName] = useState(user.firstName);
@@ -95,34 +132,85 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, onBack }) => {
       {/* Main Profile Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
         {/* Cover Image */}
-        <div className="h-44 sm:h-56 relative bg-gradient-to-r from-brand-900 via-brand-950 to-slate-900">
+        <div className="h-44 sm:h-56 relative bg-gradient-to-r from-brand-900 via-brand-950 to-slate-900 group">
           {user.coverImageUrl && (
             <img src={user.coverImageUrl} alt="Cover" className="w-full h-full object-cover opacity-80" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
 
-          {/* Edit Button if own profile */}
           {isOwnProfile && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="absolute top-4 right-4 px-3 py-1.5 bg-white/90 dark:bg-slate-900/90 hover:bg-white text-slate-900 dark:text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-1.5"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-brand-600" />
-              <span>{language === 'BN' ? 'প্রোফাইল এডিট করুন' : 'Edit Profile'}</span>
-            </button>
+            <>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverFileChange}
+                className="hidden"
+              />
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                disabled={isUploadingCover}
+                className="absolute bottom-3 right-4 px-3 py-1.5 bg-white/90 dark:bg-slate-900/90 hover:bg-white text-slate-900 dark:text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 sm:opacity-100"
+              >
+                {isUploadingCover ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
+                ) : (
+                  <Camera className="w-3.5 h-3.5 text-brand-600" />
+                )}
+                <span>{language === 'BN' ? 'কভার ছবি পরিবর্তন' : 'Change Cover'}</span>
+              </button>
+
+              {/* Edit Button */}
+              <button
+                onClick={() => setIsEditing(true)}
+                className="absolute top-4 right-4 px-3 py-1.5 bg-white/90 dark:bg-slate-900/90 hover:bg-white text-slate-900 dark:text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-brand-600" />
+                <span>{language === 'BN' ? 'প্রোফাইল এডিট করুন' : 'Edit Profile'}</span>
+              </button>
+            </>
           )}
         </div>
 
         {/* Profile Info Header */}
         <div className="px-6 sm:px-8 pb-8 relative">
+          {photoError && (
+            <div className="mb-3 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2">
+              {photoError}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-16 sm:-mt-20 gap-4 mb-4">
-            <div className="relative inline-block">
+            <div className="relative inline-block group/avatar">
               <img
                 src={user.avatarUrl}
                 alt={user.firstName}
                 className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl object-cover border-4 border-white dark:border-slate-900 shadow-xl bg-white"
               />
               <span className="absolute bottom-2 right-2 w-5 h-5 bg-brand-500 rounded-full border-2 border-white dark:border-slate-900" />
+
+              {isOwnProfile && (
+                <>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    title={language === 'BN' ? 'প্রোফাইল ছবি পরিবর্তন করুন' : 'Change profile photo'}
+                    className="absolute inset-0 flex items-center justify-center rounded-3xl bg-slate-950/0 group-hover/avatar:bg-slate-950/50 transition text-white opacity-0 group-hover/avatar:opacity-100"
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <Camera className="w-6 h-6" />
+                    )}
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
